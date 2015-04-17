@@ -36,7 +36,7 @@ The Groovy development team
 image::https://raw.githubusercontent.com/groovy/artwork/master/medium.png[]
 {groovy-www}[Groovy] is a powerful, optionally typed and dynamic language, with static-typing and static compilation capabilities, for the Java platform aimed at multiplying developers’ productivity thanks to a concise, familiar and easy to learn syntax.
 
-It integrates smoothly with any Java program, and immediately delivers to your application powerful features, including scripting capabilities, Domain-Specific Language authoring, runtime and compile-time meta-programming and functional programming. 
+It integrates smoothly with any Java program, and immediately delivers to your application powerful features, including scripting capabilities, Domain-Specific Language authoring, runtime and compile-time meta-programming and functional programming.
 
 == Downloading
 
@@ -143,4 +143,3 @@ The official CI server runs {groovy-ci}[here] and is sponsored by http://www.jet
 == License
 
 Groovy is licensed under the terms of the http://www.apache.org/licenses/LICENSE-2.0.html[Apache License, Version 2.0]
-
