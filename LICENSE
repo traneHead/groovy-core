@@ -211,19 +211,6 @@ For details, see licenses/asciidoc-style-license.txt.
 
 ------------------------------------------------------------------------
 
-JLine2 Patch License
-
-The following class within this product:
-
-    org.codehaus.groovy.tools.shell.completion.FileNameCompleter
-
-was derived from JLine 2.12, and the following patch:
-https://github.com/jline/jline2/issues/90
-JLine2 is made available under a BSD License.
-For details, see licenses/jline2-license.
-
-------------------------------------------------------------------------
-
 JQuery License
 
 The following file is used within documentation:
@@ -253,4 +240,5 @@ normalize.css License
 
 The stylesheet.css file (originally normalize.css) is used by the
 groovydoc and docgenerator components for groovy-jdk/gapi documentation.
-It is made available under a MIT License. Details: licenses/normalize-stylesheet-license.txt
+It is made available under a MIT License:
+licenses/normalize-stylesheet-license.txt

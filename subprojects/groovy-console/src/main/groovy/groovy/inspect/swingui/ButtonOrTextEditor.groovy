@@ -19,13 +19,11 @@
  */
 package groovy.inspect.swingui
 
-import javax.swing.AbstractCellEditor
-import javax.swing.JButton
-import javax.swing.JComponent
-import javax.swing.JTable
-import javax.swing.JTextArea
+import groovy.transform.CompileStatic
+
+import javax.swing.*
 import javax.swing.table.TableCellEditor
-import java.awt.Component
+import java.awt.*
 import java.awt.event.ActionListener
 import java.awt.event.FocusListener
 
@@ -34,6 +32,7 @@ import java.awt.event.FocusListener
  * a text field if the value exists, or null otherwise (non editable cell).
  * This hack allows to interact with buttons in a cell.
  */
+@CompileStatic
 class ButtonOrTextEditor extends AbstractCellEditor implements TableCellEditor {
     /** The Swing component being edited. */
     protected JComponent editorComponent
@@ -42,7 +41,7 @@ class ButtonOrTextEditor extends AbstractCellEditor implements TableCellEditor {
     Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
         if (value instanceof JButton) {
             editorComponent = value
-            editorComponent.addActionListener({ fireEditingStopped() } as ActionListener)
+            ((JButton) editorComponent).addActionListener({ fireEditingStopped() } as ActionListener)
         } else if (value instanceof JTextArea) {
             editorComponent = value
         } else if (value) {

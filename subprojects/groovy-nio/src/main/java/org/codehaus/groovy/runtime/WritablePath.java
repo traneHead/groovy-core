@@ -18,6 +18,8 @@
  */
 package org.codehaus.groovy.runtime;
 
+import groovy.lang.Writable;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -33,8 +35,6 @@ import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.util.Iterator;
-
-import groovy.lang.Writable;
 
 /**
  * A Writable Path.
@@ -58,20 +58,16 @@ public class WritablePath implements Path, Writable {
     }
 
     public Writer writeTo(final Writer out) throws IOException {
-        final Reader reader =
-                (this.encoding == null)
-                        ? new InputStreamReader(Files.newInputStream(this))
-                        : new InputStreamReader(Files.newInputStream(this), Charset.forName(this.encoding));
 
-        try {
+        try (Reader reader = (this.encoding == null)
+                ? new InputStreamReader(Files.newInputStream(this))
+                : new InputStreamReader(Files.newInputStream(this), Charset.forName(this.encoding))) {
             int c = reader.read();
 
             while (c != -1) {
                 out.write(c);
                 c = reader.read();
             }
-        } finally {
-            reader.close();
         }
         return out;
     }

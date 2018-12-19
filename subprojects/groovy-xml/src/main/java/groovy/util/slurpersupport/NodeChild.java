@@ -21,14 +21,13 @@ package groovy.util.slurpersupport;
 import groovy.lang.Closure;
 import groovy.lang.GroovyObject;
 import groovy.lang.GroovyRuntimeException;
+import org.codehaus.groovy.runtime.typehandling.DefaultTypeTransformation;
 
 import java.io.IOException;
 import java.io.Writer;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-
-import org.codehaus.groovy.runtime.typehandling.DefaultTypeTransformation;
 
 /**
  * Lazy evaluated representation of a child node.
@@ -101,47 +100,11 @@ public class NodeChild extends GPathResult {
     }
 
     public Iterator iterator() {
-        return new Iterator() {
-            private boolean hasNext = true;
-
-            public boolean hasNext() {
-                return this.hasNext;
-            }
-
-            public Object next() {
-                try {
-                    return (this.hasNext) ? NodeChild.this : null;
-                } finally {
-                    this.hasNext = false;
-                }
-            }
-
-            public void remove() {
-                throw new UnsupportedOperationException();
-            }
-        };
+        return createIterator(this);
     }
 
     public Iterator nodeIterator() {
-        return new Iterator() {
-            private boolean hasNext = true;
-
-            public boolean hasNext() {
-                return this.hasNext;
-            }
-
-            public Object next() {
-                try {
-                    return (this.hasNext) ? NodeChild.this.node : null;
-                } finally {
-                    this.hasNext = false;
-                }
-            }
-
-            public void remove() {
-                throw new UnsupportedOperationException();
-            }
-        };
+        return createIterator(this.node);
     }
 
     public Object getAt(final int index) {

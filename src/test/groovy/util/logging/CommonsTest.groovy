@@ -23,10 +23,6 @@ import java.lang.reflect.Modifier
 
 /**
  * Unit test for the commons logging @Log based annotation.
- *
- * @author Hamlet D'Arcy
- * @author Matthias Cullmann
- * 
  */
 class CommonsTest extends GroovyTestCase {
 

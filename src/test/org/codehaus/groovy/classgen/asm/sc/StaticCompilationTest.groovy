@@ -19,8 +19,6 @@
 package org.codehaus.groovy.classgen.asm.sc
 
 import org.codehaus.groovy.classgen.asm.AbstractBytecodeTestCase
-import org.codehaus.groovy.control.CompilerConfiguration
-import org.codehaus.groovy.transform.stc.GroovyTypeCheckingExtensionSupport
 
 import static org.codehaus.groovy.control.CompilerConfiguration.DEFAULT as config
 
@@ -33,6 +31,7 @@ class StaticCompilationTest extends AbstractBytecodeTestCase {
         assert bytecode.hasStrictSequence(
                 ['public m()V',
                         'L0',
+                        'LINENUMBER 3 L0',
                         'RETURN']
         )
     }
@@ -179,7 +178,7 @@ class StaticCompilationTest extends AbstractBytecodeTestCase {
     }
 
     void testArrayGet() {
-        if (config.optimizationOptions.indy) return;
+        if (config.indyEnabled) return;
         // this test is done with indy in another tests case
         assert compile([method:'m'],'''
         @groovy.transform.CompileStatic
@@ -193,7 +192,7 @@ class StaticCompilationTest extends AbstractBytecodeTestCase {
     }
 
     void testArraySet() {
-        if (config.optimizationOptions.indy) return;
+        if (config.indyEnabled) return;
         // this test is done with indy in another tests case
         assert compile([method:'m'],'''
         @groovy.transform.CompileStatic

@@ -18,10 +18,6 @@
  */
 package groovy.ui.view
 
-import java.awt.MenuItem;
-
-import groovy.swing.factory.SeparatorFactory;
-
 menuBar {
     menu(text: 'File', mnemonic: 'F') {
         menuItem(newFileAction)
@@ -62,6 +58,7 @@ menuBar {
         separator()
         menuItem(largerFontAction)
         menuItem(smallerFontAction)
+        checkBoxMenuItem(smartHighlighterAction, selected: controller.smartHighlighter)
         separator()
         checkBoxMenuItem(captureStdOutAction, selected: controller.captureStdOut)
         checkBoxMenuItem(captureStdErrAction, selected: controller.captureStdErr)
@@ -89,6 +86,7 @@ menuBar {
         separator()
         menuItem(addClasspathJar)
         menuItem(addClasspathDir)
+        menuItem(listClasspath)
         menuItem(clearClassloader)
         separator()
         menuItem(inspectLastAction)

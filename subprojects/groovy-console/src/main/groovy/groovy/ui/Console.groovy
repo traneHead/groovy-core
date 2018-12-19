@@ -18,15 +18,62 @@
  */
 package groovy.ui
 
-import groovy.inspect.swingui.ObjectBrowser
+import groovy.cli.picocli.CliBuilder
+import groovy.cli.picocli.OptionAccessor
 import groovy.inspect.swingui.AstBrowser
+import groovy.inspect.swingui.ObjectBrowser
 import groovy.swing.SwingBuilder
+import groovy.transform.CompileStatic
+import groovy.transform.ThreadInterrupt
 import groovy.ui.text.FindReplaceUtility
+import groovy.ui.text.GroovyFilter
+import groovy.ui.text.SmartDocumentFilter
+import org.apache.groovy.io.StringBuilderWriter
+import org.apache.groovy.parser.antlr4.GroovyLangLexer
+import org.apache.groovy.util.SystemUtil
 import org.codehaus.groovy.antlr.LexerFrame
+import org.codehaus.groovy.control.CompilerConfiguration
+import org.codehaus.groovy.control.ErrorCollector
+import org.codehaus.groovy.control.MultipleCompilationErrorsException
+import org.codehaus.groovy.control.ParserVersion
+import org.codehaus.groovy.control.customizers.ASTTransformationCustomizer
+import org.codehaus.groovy.control.messages.ExceptionMessage
 import org.codehaus.groovy.control.messages.SimpleMessage
+import org.codehaus.groovy.control.messages.SyntaxErrorMessage
+import org.codehaus.groovy.runtime.StackTraceUtils
+import org.codehaus.groovy.runtime.StringGroovyMethods
+import org.codehaus.groovy.syntax.SyntaxException
 import org.codehaus.groovy.tools.shell.util.MessageSource
+import org.codehaus.groovy.transform.ThreadInterruptibleASTTransformation
 
+import javax.swing.Action
+import javax.swing.Icon
+import javax.swing.JApplet
+import javax.swing.JFileChooser
+import javax.swing.JFrame
+import javax.swing.JLabel
+import javax.swing.JOptionPane
+import javax.swing.JScrollPane
+import javax.swing.JSplitPane
+import javax.swing.JTextPane
+import javax.swing.RootPaneContainer
+import javax.swing.SwingUtilities
+import javax.swing.UIManager
+import javax.swing.event.CaretEvent
+import javax.swing.event.CaretListener
+import javax.swing.event.DocumentListener
+import javax.swing.event.HyperlinkEvent
+import javax.swing.event.HyperlinkListener
+import javax.swing.filechooser.FileFilter
+import javax.swing.text.AttributeSet
+import javax.swing.text.Element
+import javax.swing.text.SimpleAttributeSet
+import javax.swing.text.Style
+import javax.swing.text.StyleConstants
+import javax.swing.text.html.HTML
+import java.awt.BorderLayout
 import java.awt.Component
+import java.awt.Dimension
 import java.awt.EventQueue
 import java.awt.Font
 import java.awt.Toolkit
@@ -34,48 +81,14 @@ import java.awt.Window
 import java.awt.event.ActionEvent
 import java.awt.event.ComponentEvent
 import java.awt.event.ComponentListener
-import java.awt.event.FocusListener
 import java.awt.event.FocusEvent
+import java.awt.event.FocusListener
 import java.util.prefs.Preferences
-import javax.swing.*
-import javax.swing.event.CaretEvent
-import javax.swing.event.CaretListener
-import javax.swing.event.HyperlinkListener
-import javax.swing.event.HyperlinkEvent
-import javax.swing.text.AttributeSet
-import javax.swing.text.Element
-import javax.swing.text.SimpleAttributeSet
-import javax.swing.text.Style
-import javax.swing.text.StyleConstants
-import javax.swing.text.html.HTML
-import javax.swing.filechooser.FileFilter
-
-import org.codehaus.groovy.runtime.StackTraceUtils
-import org.codehaus.groovy.control.ErrorCollector
-import org.codehaus.groovy.control.MultipleCompilationErrorsException
-import org.codehaus.groovy.control.messages.SyntaxErrorMessage
-import org.codehaus.groovy.syntax.SyntaxException
-import org.codehaus.groovy.control.messages.ExceptionMessage
-import java.awt.Dimension
-import java.awt.BorderLayout
-import org.codehaus.groovy.control.CompilerConfiguration
-import org.codehaus.groovy.control.customizers.ASTTransformationCustomizer
-import groovy.transform.ThreadInterrupt
-import javax.swing.event.DocumentListener
 
 /**
  * Groovy Swing console.
  *
  * Allows user to interactively enter and execute Groovy.
- *
- * @author Danno Ferrin
- * @author Dierk Koenig, changed Layout, included Selection sensitivity, included ObjectBrowser
- * @author Alan Green more features: history, System.out capture, bind result to _
- * @author Guillaume Laforge, stacktrace hyperlinking to the current script line
- * @author Hamlet D'Arcy, AST browser
- * @author Roshan Dawrani
- * @author Paul King
- * @author Andre Steingress
  */
 class Console implements CaretListener, HyperlinkListener, ComponentListener, FocusListener {
 
@@ -87,6 +100,9 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
     static boolean captureStdOut = prefs.getBoolean('captureStdOut', true)
     static boolean captureStdErr = prefs.getBoolean('captureStdErr', true)
     static consoleControllers = []
+
+    static boolean smartHighlighter = prefs.getBoolean('smartHighlighter',
+            Boolean.valueOf(SystemUtil.getSystemPropertySafe('groovy.console.enable.smart.highlighter', 'true')))
 
     boolean fullStackTraces = prefs.getBoolean('fullStackTraces',
         Boolean.valueOf(System.getProperty('groovy.full.stacktrace', 'false')))
@@ -200,18 +216,20 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
     Action selectWordAction
     Action selectPreviousWordAction
 
-    ConsolePreferences consolePreferences;
+    ConsolePreferences consolePreferences
 
     static void main(args) {
-        CliBuilder cli = new CliBuilder(usage: 'groovyConsole [options] [filename]', stopAtNonOption: false)
         MessageSource messages = new MessageSource(Console)
+        CliBuilder cli = new CliBuilder(usage: 'groovyConsole [options] [filename]', stopAtNonOption: false,
+                header: messages['cli.option.header'])
         cli.with {
-            classpath(messages['cli.option.classpath.description'])
-            cp(longOpt: 'classpath', messages['cli.option.cp.description'])
+            _(names: ['-cp', '-classpath', '--classpath'], messages['cli.option.classpath.description'])
             h(longOpt: 'help', messages['cli.option.help.description'])
             V(longOpt: 'version', messages['cli.option.version.description'])
             pa(longOpt: 'parameters', messages['cli.option.parameters.description'])
             i(longOpt: 'indy', messages['cli.option.indy.description'])
+            D(longOpt: 'define', type: Map, argName: 'name=value', messages['cli.option.define.description'])
+            _(longOpt: 'configscript', args: 1, messages['cli.option.configscript.description'])
         }
         OptionAccessor options = cli.parse(args)
 
@@ -230,6 +248,10 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
             System.exit(0)
         }
 
+        if (options.hasOption('D')) {
+            options.Ds.each { k, v -> System.setProperty(k, v) }
+        }
+
         // full stack trace should not be logged to the output window - GROOVY-4663
         java.util.logging.Logger.getLogger(StackTraceUtils.STACK_LOG_NAME).useParentHandlers = false
 
@@ -237,7 +259,19 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
         UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName())
 
         def baseConfig = new CompilerConfiguration()
-        baseConfig.setParameters((boolean) options.hasOption("pa"))
+        String starterConfigScripts = System.getProperty("groovy.starter.configscripts", null)
+        if (options.configscript || (starterConfigScripts != null && !starterConfigScripts.isEmpty())) {
+            List<String> configScripts = new ArrayList<String>()
+            if (options.configscript) {
+                configScripts.add(options.configscript)
+            }
+            if (starterConfigScripts != null) {
+                configScripts.addAll(StringGroovyMethods.tokenize((CharSequence) starterConfigScripts, ','))
+            }
+            GroovyMain.processConfigScripts(configScripts, baseConfig)
+        }
+
+        baseConfig.setParameters(options.hasOption("pa"))
 
         if (options.i) {
             enableIndy(baseConfig)
@@ -246,8 +280,9 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
         def console = new Console(Console.class.classLoader?.getRootLoader(), new Binding(), baseConfig)
         console.useScriptClassLoaderForScriptExecution = true
         console.run()
-        if (args.length > 0 && !args[-1].toString().startsWith("-")) {
-            console.loadScriptFile(args[-1] as File)
+        def remaining = options.arguments()
+        if (remaining && !remaining[-1].startsWith("-")) {
+            console.loadScriptFile(remaining[-1] as File)
         }
 
     }
@@ -312,8 +347,10 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
 
     void newScript(ClassLoader parent, Binding binding) {
         config = new CompilerConfiguration(baseConfig)
-        if (threadInterrupt) config.addCompilationCustomizers(new ASTTransformationCustomizer(ThreadInterrupt))
-
+        config.addCompilationCustomizers(*baseConfig.compilationCustomizers)
+        if (threadInterrupt) {
+            config.addCompilationCustomizers(new ASTTransformationCustomizer(ThreadInterrupt))
+        }
         shell = new GroovyShell(parent, binding, config)
     }
 
@@ -383,7 +420,7 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
         swing.bind(source:swing.inputEditor.undoAction, sourceProperty:'enabled', target:swing.undoAction, targetProperty:'enabled')
         swing.bind(source:swing.inputEditor.redoAction, sourceProperty:'enabled', target:swing.redoAction, targetProperty:'enabled')
 
-        if (swing.consoleFrame instanceof java.awt.Window) {
+        if (swing.consoleFrame instanceof Window) {
             nativeFullScreenForMac(swing.consoleFrame)
             swing.consoleFrame.pack()
             swing.consoleFrame.show()
@@ -399,7 +436,7 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
      *
      * @param frame the application window
      */
-    private void nativeFullScreenForMac(java.awt.Window frame) {
+    private void nativeFullScreenForMac(Window frame) {
         if (System.getProperty('os.name').contains('Mac OS X')) {
             new GroovyShell(new Binding([frame: frame])).evaluate('''
                     try {
@@ -621,8 +658,16 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
     void threadInterruption(EventObject evt) {
         threadInterrupt = evt.source.selected
         prefs.putBoolean('threadInterrupt', threadInterrupt)
-        def customizers = config.compilationCustomizers
-        customizers.clear()
+        def customizers = config.compilationCustomizers.iterator()
+        while (customizers.hasNext()) {
+            def next = customizers.next()
+            if (next instanceof ASTTransformationCustomizer) {
+                ASTTransformationCustomizer astCustomizer = next
+                if (astCustomizer.transformation instanceof ThreadInterruptibleASTTransformation) {
+                    customizers.remove()
+                }
+            }
+        }
         if (threadInterrupt) {
             config.addCompilationCustomizers(new ASTTransformationCustomizer(ThreadInterrupt))
         }
@@ -655,10 +700,15 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
         runThread?.interrupt()
     }
 
+    void exitDesktop(EventObject evt = null, quitResponse = null) {
+        exit(evt)
+        quitResponse.performQuit()
+    }
+
     void exit(EventObject evt = null) {
-        if(askToInterruptScript()) {
+        if (askToInterruptScript()) {
             if (askToSaveFile()) {
-                if (frame instanceof java.awt.Window) {
+                if (frame instanceof Window) {
                     frame.hide()
                     frame.dispose()
                     outputWindow?.dispose()
@@ -825,9 +875,9 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
     private reportException(Throwable t) {
         appendOutputNl('Exception thrown\n', commandStyle)
 
-        StringWriter sw = new StringWriter()
+        Writer sw = new StringBuilderWriter()
         new PrintWriter(sw).withWriter {pw -> StackTraceUtils.deepSanitize(t).printStackTrace(pw) }
-        appendStacktrace("\n${sw.buffer}\n")
+        appendStacktrace("\n${sw.builder}\n")
     }
 
     def finishNormal(Object result) {
@@ -911,11 +961,16 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
     }
 
     void inspectAst(EventObject evt = null) {
-        new AstBrowser(inputArea, rootElement, shell.getClassLoader()).run({ inputArea.getText() } )
+        new AstBrowser(inputArea, rootElement, shell.getClassLoader(), config).run({ inputArea.getText() } )
     }
 
     void inspectTokens(EventObject evt = null) {
-        def lf = LexerFrame.groovyScriptFactory(inputArea.getText())
+        def content = inputArea.getText()
+        def lf =
+                ParserVersion.V_2 == CompilerConfiguration.DEFAULT.parserVersion ?
+                        LexerFrame.groovyScriptFactory(content) :
+                        new LexerFrame(GroovyLangLexer, org.apache.groovy.parser.antlr4.GroovyLexer, new StringReader(content))
+
         lf.visible = true
     }
 
@@ -1047,6 +1102,36 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
             Preferences.userNodeForPackage(Console).put('currentClasspathDir', currentClasspathDir.path)
             shell.getClassLoader().addURL(fc.selectedFile.toURL())
         }
+    }
+
+    void listClasspath(EventObject evt = null) {
+        List<URL> urls = []
+
+        ClassLoader cl = shell.classLoader
+        while(cl instanceof URLClassLoader) {
+            cl.getURLs().each { url -> urls << url }
+            cl = cl.parent
+        }
+
+        boolean isWin = isWindows()
+        List data = urls.unique().collect { url -> [name: new File(url.toURI()).name, path: isWin ? url.path.substring(1).replace('/', '\\') : url.path] }
+        data.sort { it.name.toLowerCase() }
+
+        JScrollPane scrollPane = swing.scrollPane{
+            table {
+                tableModel(list : data) {
+                    propertyColumn(header: 'Name', propertyName: 'name', editable: false)
+                    propertyColumn(header:' Path', propertyName: 'path', editable: false)
+                }
+            }
+        }
+
+        def pane = swing.optionPane()
+        pane.message = scrollPane
+        def dialog = pane.createDialog(frame, 'Classpath')
+        dialog.setSize(800, 600)
+        dialog.resizable = true
+        dialog.visible = true
     }
 
     void clearContext(EventObject evt = null) {
@@ -1392,6 +1477,12 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
         updateFontSize(inputArea.font.size - 2)
     }
 
+    void smartHighlighter(EventObject evt = null) {
+        inputEditor.enableHighLighter(evt.source.selected ? SmartDocumentFilter : GroovyFilter)
+        inputEditor.textEditor.setText(inputEditor.textEditor.getText()) // enable the highlighter immediately
+        prefs.putBoolean('smartHighlighter', evt.source.selected)
+    }
+
     void updateTitle() {
         if (frame.properties.containsKey('title')) {
             String title = 'GroovyConsole'
@@ -1526,25 +1617,33 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
     }
 
     public void focusLost(FocusEvent e) { }
+
+    private static boolean isWindows() {
+        return getOsName().startsWith("windows")
+    }
+    private static String getOsName() {
+        return System.getProperty("os.name").toLowerCase()
+    }
 }
 
+@CompileStatic
 class GroovyFileFilter extends FileFilter {
-    private static final GROOVY_SOURCE_EXTENSIONS = ['*.groovy', '*.gvy', '*.gy', '*.gsh', '*.story', '*.gpp', '*.grunit']
+    private static final List GROOVY_SOURCE_EXTENSIONS = ['*.groovy', '*.gvy', '*.gy', '*.gsh', '*.story', '*.gpp', '*.grunit']
     private static final GROOVY_SOURCE_EXT_DESC = GROOVY_SOURCE_EXTENSIONS.join(',')
 
-    public boolean accept(File f) {
+    boolean accept(File f) {
         if (f.isDirectory()) {
             return true
         }
         GROOVY_SOURCE_EXTENSIONS.find {it == getExtension(f)} ? true : false
     }
 
-    public String getDescription() {
+    String getDescription() {
         "Groovy Source Files ($GROOVY_SOURCE_EXT_DESC)"
     }
-    
-    static String getExtension(f) {
-        def ext = null;
+
+    static String getExtension(File f) {
+        def ext = null
         def s = f.getName()
         def i = s.lastIndexOf('.')
         if (i > 0 &&  i < s.length() - 1) {

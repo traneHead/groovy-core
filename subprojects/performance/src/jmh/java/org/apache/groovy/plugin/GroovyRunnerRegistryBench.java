@@ -29,7 +29,7 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
 
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -41,7 +41,7 @@ import java.util.concurrent.TimeUnit;
 @State(Scope.Thread)
 public class GroovyRunnerRegistryBench {
 
-    static List<Object> control = new LinkedList<>();
+    static List<Object> control = new ArrayList<>();
     static GroovyRunnerRegistry registry = GroovyRunnerRegistry.getInstance();
     static {
         control.add(new Object());

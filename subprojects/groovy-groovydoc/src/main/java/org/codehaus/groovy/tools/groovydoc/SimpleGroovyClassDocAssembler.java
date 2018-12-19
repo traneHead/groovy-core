@@ -25,7 +25,12 @@ import org.codehaus.groovy.antlr.SourceBuffer;
 import org.codehaus.groovy.antlr.parser.GroovyTokenTypes;
 import org.codehaus.groovy.antlr.treewalker.VisitorAdapter;
 import org.codehaus.groovy.control.ResolveVisitor;
-import org.codehaus.groovy.groovydoc.*;
+import org.codehaus.groovy.groovydoc.GroovyAnnotationRef;
+import org.codehaus.groovy.groovydoc.GroovyClassDoc;
+import org.codehaus.groovy.groovydoc.GroovyConstructorDoc;
+import org.codehaus.groovy.groovydoc.GroovyFieldDoc;
+import org.codehaus.groovy.groovydoc.GroovyMethodDoc;
+import org.codehaus.groovy.groovydoc.GroovyType;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 
 import java.util.ArrayList;
@@ -66,7 +71,7 @@ public class SimpleGroovyClassDocAssembler extends VisitorAdapter implements Gro
 
         stack = new Stack<GroovySourceAST>();
         classDocs = new LinkedHashMap<String, GroovyClassDoc>();
-        if (file != null) {
+        if (file != null && file.contains(".")) {
             // todo: replace this simple idea of default class name
             int idx = file.lastIndexOf(".");
             className = file.substring(0, idx);
@@ -885,7 +890,7 @@ public class SimpleGroovyClassDocAssembler extends VisitorAdapter implements Gro
                 }
                 typeArgumentsNext = (GroovySourceAST) typeArgumentsNext.getNextSibling();
             }
-            result.append(DefaultGroovyMethods.join(typeArgumentParts, ", "));
+            result.append(DefaultGroovyMethods.join((Iterable)typeArgumentParts, ", "));
             result.append(">");
         }
     }
@@ -901,7 +906,7 @@ public class SimpleGroovyClassDocAssembler extends VisitorAdapter implements Gro
                 }
                 typeParametersNext = (GroovySourceAST) typeParametersNext.getNextSibling();
             }
-            result.append(DefaultGroovyMethods.join(typeParameterParts, ", "));
+            result.append(DefaultGroovyMethods.join((Iterable)typeParameterParts, ", "));
             result.append(">");
         }
     }

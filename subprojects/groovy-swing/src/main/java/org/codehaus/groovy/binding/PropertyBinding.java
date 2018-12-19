@@ -27,8 +27,8 @@ import org.codehaus.groovy.runtime.InvokerInvocationException;
 import org.codehaus.groovy.runtime.ResourceGroovyMethods;
 import org.codehaus.groovy.runtime.typehandling.DefaultTypeTransformation;
 
-import javax.swing.SwingUtilities;
-import java.awt.Component;
+import javax.swing.*;
+import java.awt.*;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyVetoException;
@@ -54,6 +54,7 @@ public class PropertyBinding implements SourceBinding, TargetBinding, TriggerBin
     private static final ExecutorService DEFAULT_EXECUTOR_SERVICE = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
     private static final Logger LOG = Logger.getLogger(PropertyBinding.class.getName());
     private static final Map<Class, Class<? extends PropertyAccessor>> ACCESSORS = new LinkedHashMap<Class, Class<? extends PropertyAccessor>>();
+    private static final Object[] EMPTY_OBJECT_ARRAY = new Object[0];
 
     static {
         Enumeration<URL> urls = fetchUrlsFor("META-INF/services/" + groovy.beans.PropertyAccessor.class.getName());
@@ -106,7 +107,7 @@ public class PropertyBinding implements SourceBinding, TargetBinding, TriggerBin
     String propertyName;
     boolean nonChangeCheck;
     UpdateStrategy updateStrategy;
-    private final Object[] lock = new Object[0];
+    private final Object[] lock = EMPTY_OBJECT_ARRAY;
     private PropertyAccessor propertyAccessor;
 
     public PropertyBinding(Object bean, String propertyName) {
@@ -157,9 +158,7 @@ public class PropertyBinding implements SourceBinding, TargetBinding, TriggerBin
 
         try {
             return accessorClass.newInstance();
-        } catch (InstantiationException e) {
-            return DefaultPropertyAccessor.INSTANCE;
-        } catch (IllegalAccessException e) {
+        } catch (InstantiationException | IllegalAccessException e) {
             return DefaultPropertyAccessor.INSTANCE;
         }
     }

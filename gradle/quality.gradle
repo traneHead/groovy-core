@@ -24,13 +24,18 @@ allprojects {
     //apply plugin: "com.github.hierynomus.license"
     apply plugin: 'checkstyle'
     apply plugin: 'codenarc'
-    apply plugin: 'findbugs'
+    apply plugin: 'com.github.spotbugs'
     configurations.codenarc {
         // because we will rely on the version we build
         // because version ranges are evil
         // and because it causes bnd to be brought transitively
         // I am unsure why; says it is required by groovy-ant but its pom.xml does not declare so
-        exclude group:'org.codehaus.groovy'
+        resolutionStrategy.dependencySubstitution {
+            substitute module("org.codehaus.groovy:groovy") with project(":")
+            substitute module("org.codehaus.groovy:groovy-ant") with project(":groovy-ant")
+            substitute module("org.codehaus.groovy:groovy-xml") with project(":groovy-xml")
+            substitute module("org.codehaus.groovy:groovy-groovydoc") with project(":groovy-groovydoc")
+        }
     }
 
 //    license {
@@ -54,13 +59,9 @@ allprojects {
 
     // don't fail build on CodeNarc tasks
     tasks.withType(CodeNarc) {
+        dependsOn jar
         ignoreFailures = true
         configFile = file("$rootProject.projectDir/config/codenarc/codenarc.groovy")
-        codenarcClasspath = rootProject.sourceSets.main.output +
-                project(':groovy-templates').sourceSets.main.output +
-                project(':groovy-xml').sourceSets.main.output +
-                configurations.compile +
-                files { configurations.codenarc.findAll { !(it.name =~ /groovy|junit/)} }
     }
 
     tasks.withType(Checkstyle) {
@@ -79,16 +80,16 @@ allprojects {
                 destination reportFile
             }
         }
-        task("${name}Report") {
-            def configDir = file("$rootProject.projectDir/config/checkstyle")
-            def templateFile = 'checkstyle-report.groovy'
-            def htmlReportFile = file("${buildDir}/reports/checkstyle/${name}.html")
-            inputs.file file("$configDir/$templateFile")
-            inputs.file reportFile
-            outputs.file htmlReportFile
+        if (!source.empty) {
+            task("${name}Report") {
+                def configDir = file("$rootProject.projectDir/config/checkstyle")
+                def templateFile = 'checkstyle-report.groovy'
+                def htmlReportFile = file("${buildDir}/reports/checkstyle/${name}.html")
+                inputs.file file("$configDir/$templateFile")
+                inputs.file reportFile
+                outputs.file htmlReportFile
 
-            doLast {
-                if (reportFile.exists()) {
+                doLast {
                     def templateConfiguration = new TemplateConfiguration()
                     templateConfiguration.with {
                         autoIndent = true
@@ -122,22 +123,27 @@ allprojects {
                     }
                 }
             }
+            finalizedBy "${name}Report"
         }
-        finalizedBy "${name}Report"
     }
 
-    findbugs {
+    spotbugs {
+        toolVersion = '3.1.7'
         // continue build despite findbug warnings
         ignoreFailures = true
-        sourceSets = [sourceSets.main]
+        //defining source set is needless
+        //just run ./gradlew spotbugsMain then it will parse src/main/java.
+        //To parse test cases, you need to use ./gradlew spotbugsTest.
     }
-    tasks.withType(FindBugs) {
+
+    // To generate an HTML report instead of XML
+    tasks.withType(SpotBugsTask) {
         effort = 'max'
         reports {
             xml.enabled = false
             html.enabled = true
         }
-        maxHeapSize = '2g'
+        maxHeapSize '2g'
     }
 }
 
@@ -160,7 +166,7 @@ subprojects { sp ->
     }
     rat {
         inputDir = sp.projectDir.absolutePath
-        excludes = [ 'target/**', '.gradle/**', '*.iml', '.classpath', '.project', '.settings/**', 'bin/**' , *extras]
+        excludes = [ 'target/**', 'build/**', '.gradle/**', '*.iml', '.classpath', '.project', '.settings/**', 'bin/**' , *extras]
     }
 }
 
@@ -168,11 +174,12 @@ rat {
     excludes = [ 'subprojects/**', // covered above
                  'benchmark/**', // benchmarking files excluded from src zip
                  'config/**',
+                 'src/install/**', // CI file excluded from src zip
                  'src/test/org/codehaus/groovy/ast/LineColumnCheck.txt', // test file
                  'security/groovykeys', // excluded from src zip
                  '**/.gradle/**', '**/wrapper/**', 'gradlew*',  // gradle wrapper files excluded from src zip
                  'gradle.properties',  // artifactory release plugin removes header when bumping version
-                 '**/target/**', 'licenses/**', 'notices/**',
+                 '**/target/**', '**/build/**', 'licenses/**', 'notices/**',
                  'out/**', '*.ipr',  '**/*.iml', '*.iws', // Intellij files
                  '**/style.css', // MIT license as per NOTICE/LICENSE files
                  '**/jquery-2.1.1.min.js', // MIT license as per NOTICE/LICENSE files
@@ -182,4 +189,4 @@ rat {
 
 apply from: 'gradle/jacoco/jacoco.gradle'
 // Temporarily disabled because of conflict
-//apply from: 'gradle/binarycompatibility.gradle'
+apply from: 'gradle/binarycompatibility.gradle'

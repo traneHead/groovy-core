@@ -20,7 +20,13 @@ package groovy.sql;
 
 import groovy.lang.Closure;
 import groovy.lang.GString;
+import groovy.lang.MissingPropertyException;
+import groovy.lang.Tuple;
+import groovy.transform.stc.ClosureParams;
+import groovy.transform.stc.SimpleType;
+import org.codehaus.groovy.runtime.InvokerHelper;
 
+import javax.sql.DataSource;
 import java.security.AccessController;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
@@ -33,20 +39,20 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.sql.DataSource;
-
-import groovy.lang.MissingPropertyException;
-import groovy.lang.Tuple;
-import groovy.transform.stc.ClosureParams;
-import groovy.transform.stc.SimpleType;
-import org.codehaus.groovy.runtime.InvokerHelper;
-
-import static org.codehaus.groovy.runtime.SqlGroovyMethods.toRowResult;
+import static org.apache.groovy.sql.extensions.SqlExtensions.toRowResult;
 
 /**
  * A facade over Java's normal JDBC APIs providing greatly simplified
@@ -234,7 +240,7 @@ import static org.codehaus.groovy.runtime.SqlGroovyMethods.toRowResult;
  * @author Daniel Henrique Alves Lima
  * @author David Sutherland
  */
-public class Sql {
+public class Sql implements AutoCloseable {
 
     /**
      * Hook to allow derived classes to access the log
@@ -243,6 +249,7 @@ public class Sql {
 
     private static final List<Object> EMPTY_LIST = Collections.emptyList();
     private static final int USE_COLUMN_NAMES = -1;
+    private static final String[] EMPTY_STRING_ARRAY = new String[0];
 
     private DataSource dataSource;
 
@@ -584,14 +591,18 @@ public class Sql {
         Connection connection;
         LOG.fine("url = " + url);
         if (props != null) {
-            Properties propsCopy = new Properties(props);
-            connection = DriverManager.getConnection(url.toString(), propsCopy);
-            if (propsCopy.containsKey("password")) {
-                // don't log the password
-                propsCopy = new Properties(propsCopy);
-                propsCopy.setProperty("password", "***");
+            connection = DriverManager.getConnection(url.toString(), props);
+            if (LOG.isLoggable(Level.FINE)) {
+                if (!props.containsKey("password")) {
+                    LOG.fine("props = " + props);
+                } else {
+                    // don't log the password
+                    Properties propsCopy = new Properties();
+                    propsCopy.putAll(props);
+                    propsCopy.setProperty("password", "***");
+                    LOG.fine("props = " + propsCopy);
+                }
             }
-            LOG.fine("props = " + propsCopy);
         } else if (sqlArgs.containsKey("user")) {
             Object user = sqlArgs.remove("user");
             LOG.fine("user = " + user);
@@ -3404,6 +3415,7 @@ public class Sql {
      * the connection. If this SQL object was created from a DataSource then
      * this method only frees any cached objects (statements in particular).
      */
+    @Override
     public void close() {
         namedParamSqlCache.clear();
         namedParamIndexPropCache.clear();
@@ -3567,13 +3579,7 @@ public class Sql {
             connection.setAutoCommit(false);
             callClosurePossiblyWithConnection(closure, connection);
             connection.commit();
-        } catch (SQLException e) {
-            handleError(connection, e);
-            throw e;
-        } catch (RuntimeException e) {
-            handleError(connection, e);
-            throw e;
-        } catch (Error e) {
+        } catch (SQLException | Error | RuntimeException e) {
             handleError(connection, e);
             throw e;
         } catch (Exception e) {
@@ -4579,7 +4585,7 @@ public class Sql {
         @Override
         protected PreparedStatement execute(Connection connection, String sql) throws SQLException {
             if (returnGeneratedKeys == USE_COLUMN_NAMES && keyColumnNames != null) {
-                return connection.prepareStatement(sql, keyColumnNames.toArray(new String[keyColumnNames.size()]));
+                return connection.prepareStatement(sql, keyColumnNames.toArray(EMPTY_STRING_ARRAY));
             }
             if (returnGeneratedKeys != 0) {
                 return connection.prepareStatement(sql, returnGeneratedKeys);

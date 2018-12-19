@@ -33,7 +33,7 @@ project.ext.pomConfigureClosureWithoutTweaks = {
         inceptionYear '2003'
         organization {
             name 'Apache Software Foundation'
-            url 'http://groovy-lang.org'
+            url 'http://apache.org'
         }
         developers {
             developer {
@@ -41,7 +41,6 @@ project.ext.pomConfigureClosureWithoutTweaks = {
                 name 'Guillaume Laforge'
                 organization 'SpringSource'
                 roles {
-                    role 'Project Manager'
                     role 'Despot'
                     role 'Developer'
                 }
@@ -212,7 +211,7 @@ project.ext.pomConfigureClosureWithoutTweaks = {
             developer {
                 id 'russel'
                 name 'Russel Winder'
-                email 'russel@russel.org.uk'
+                email 'russel@winder.org.uk'
                 organization 'Concertant LLP & It\'z Interactive Ltd'
                 roles {
                     role 'Developer'
@@ -249,8 +248,9 @@ project.ext.pomConfigureClosureWithoutTweaks = {
                 id 'paulk'
                 name 'Paul King'
                 email 'paulk@asert.com.au'
-                organization 'ASERT, Australia'
+                organization 'OCI, Australia'
                 roles {
+                    role 'Project Manager'
                     role 'Developer'
                     role 'Despot'
                 }
@@ -356,6 +356,29 @@ project.ext.pomConfigureClosureWithoutTweaks = {
                     role 'Developer'
                 }
             }
+            developer {
+                id 'sunlan'
+                name 'Daniel Sun'
+                email 'realbluesun@hotmail.com'
+                roles {
+                    role 'Developer'
+                    role 'Despot'
+                }
+            }
+            developer {
+                id 'rpopma'
+                name 'Remko Popma'
+                roles {
+                    role 'Developer'
+                }
+            }
+            developer {
+                id 'grocher'
+                name 'Graeme Rocher'
+                roles {
+                    role 'Developer'
+                }
+            }
         }
         contributors {
             contributor {
@@ -433,6 +456,9 @@ project.ext.pomConfigureClosureWithoutTweaks = {
             }
             contributor {
                 name 'Bernhard Huber'
+            }
+            contributor {
+                name 'Yasuharu Nakano'
             }
             contributor {
                 name 'Marc DeXeT'
@@ -541,7 +567,22 @@ project.ext.pomConfigureClosureWithoutTweaks = {
                 name 'Peter Ledbrook'
             }
             contributor {
+                name 'Scott Stirling'
+            }
+            contributor {
                 name 'Thibault Kruse'
+            }
+            contributor {
+                name 'Tim Tiemens'
+            }
+            contributor {
+                name 'Mike Spille'
+            }
+            contributor {
+                name 'Nikolay Chugunov'
+            }
+            contributor {
+                name 'Francesco Durbin'
             }
             contributor {
                 name 'Paolo Di Tommaso'
@@ -551,6 +592,9 @@ project.ext.pomConfigureClosureWithoutTweaks = {
             }
             contributor {
                 name 'Matias Bjarland'
+            }
+            contributor {
+                name 'Tomasz Bujok'
             }
             contributor {
                 name 'Richard Hightower'
@@ -584,6 +628,54 @@ project.ext.pomConfigureClosureWithoutTweaks = {
             }
             contributor {
                 name 'Martin Kempf'
+            }
+            contributor {
+                name 'Martin Ghados'
+            }
+            contributor {
+                name 'Alberto Mijares'
+            }
+            contributor {
+                name 'Matthias Cullmann'
+            }
+            contributor {
+                name 'Tomek Bujok'
+            }
+            contributor {
+                name 'Stephane Landelle'
+            }
+            contributor {
+                name 'Vladimir Vivien'
+            }
+            contributor {
+                name 'Joe Wolf'
+            }
+            contributor {
+                name 'Kent Inge Fagerland Simonsen'
+            }
+            contributor {
+                name 'Tom Nichols'
+            }
+            contributor {
+                name 'mgroovy'
+            }
+            contributor {
+                name 'Dominik Przybysz'
+            }
+            contributor {
+                name 'Shruti Gupta'
+            }
+            contributor {
+                name 'Ben Yu'
+            }
+            contributor {
+                name 'Dejan Bosanac'
+            }
+            contributor {
+                name 'Lidia Donajczyk-Lipinska'
+            }
+            contributor {
+                name 'Peter Gromov'
             }
         }
         mailingLists {

@@ -18,14 +18,10 @@
  */
 package groovy.ui
 
-import groovy.swing.factory.ActionFactory;
-
+import javax.swing.*
+import java.awt.*
 import java.awt.event.InputEvent
 import java.awt.event.KeyEvent
-
-import javax.swing.KeyStroke
-
-import java.awt.Toolkit
 
 newFileAction = action(
     name: 'New File',
@@ -228,6 +224,11 @@ addClasspathDir = action(
     mnemonic: 'D',
 )
 
+listClasspath = action(
+    name: 'List Classpath',
+    closure: controller.&listClasspath
+)
+
 clearClassloader = action(
     name: 'Clear Script Context',
     closure: controller.&clearContext,
@@ -353,6 +354,11 @@ smallerFontAction = action(
     closure: controller.&smallerFont,
     mnemonic: 'S',
     accelerator: shortcut('shift S')
+)
+
+smartHighlighterAction = action(
+        name: 'Enable smart highlighter',
+        closure: controller.&smartHighlighter
 )
 
 aboutAction = action(

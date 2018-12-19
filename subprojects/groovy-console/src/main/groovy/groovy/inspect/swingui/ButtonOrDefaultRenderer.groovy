@@ -19,16 +19,18 @@
  */
 package groovy.inspect.swingui
 
-import javax.swing.JComponent
-import javax.swing.JTable
+import groovy.transform.CompileStatic
+
+import javax.swing.*
 import javax.swing.table.DefaultTableCellRenderer
-import java.awt.Component
+import java.awt.*
 
 /**
  * A table cell renderer that will return a component instead of drawing it,
  * or call the default in the case of a non component object.
  * This hack allows to render a button shape in a table cell.
  */
+@CompileStatic
 class ButtonOrDefaultRenderer extends DefaultTableCellRenderer {
     Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
         if (value instanceof JComponent) {

@@ -26,6 +26,7 @@ import javax.swing.text.Position;
 import javax.swing.text.Segment;
 import javax.swing.text.Style;
 import javax.swing.text.StyleContext;
+import java.io.Serializable;
 import java.nio.CharBuffer;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -71,13 +72,13 @@ public class StructuredSyntaxDocumentFilter extends DocumentFilter {
         String checking = regexp.replaceAll("\\\\\\(", "X").replaceAll("\\(\\?", "X");
         int checked = checking.indexOf('(');
         if (checked > -1) {
-            String msg = "Only non-capturing groups allowed:\r\n" +
-                         regexp + "\r\n";
+            StringBuilder msg = new StringBuilder("Only non-capturing groups allowed:\r\n" +
+                    regexp + "\r\n");
             for (int i = 0; i < checked; i++) {
-                msg += " ";
+                msg.append(" ");
             }
-            msg += "^";
-            throw new IllegalArgumentException(msg);
+            msg.append("^");
+            throw new IllegalArgumentException(msg.toString());
         }
     }
     
@@ -134,7 +135,7 @@ public class StructuredSyntaxDocumentFilter extends DocumentFilter {
     private MultiLineRun getMultiLineRun(int offset) {
         MultiLineRun ml = null;
         if (offset > 0) {
-            Integer os = Integer.valueOf(offset);
+            Integer os = offset;
 
             SortedSet set = mlTextRunSet.headSet(os);
             if (!set.isEmpty()) {
@@ -207,8 +208,8 @@ public class StructuredSyntaxDocumentFilter extends DocumentFilter {
             
             // clean the tree by ensuring multi line styles are reset in area
             // of parsing
-            SortedSet set = mlTextRunSet.subSet(Integer.valueOf(offset),
-                                                Integer.valueOf(offset + length));
+            SortedSet set = mlTextRunSet.subSet(offset,
+                    offset + length);
             if (set != null) {
                 set.clear();
             }
@@ -313,10 +314,10 @@ public class StructuredSyntaxDocumentFilter extends DocumentFilter {
         }
     
         private String buildRegexp(String[] regexps) {
-            String regexp = "";
+            StringBuilder regexp = new StringBuilder();
 
             for (int i = 0; i < regexps.length; i++) {
-                regexp += "|" + regexps[i];
+                regexp.append("|").append(regexps[i]);
             }
 
             // ensure leading '|' is removed
@@ -333,14 +334,14 @@ public class StructuredSyntaxDocumentFilter extends DocumentFilter {
             groupList.add(null);
             
             Iterator iter = styleMap.keySet().iterator();
-            String regexp = "";
+            StringBuilder regexp = new StringBuilder();
             while (iter.hasNext()) {
                 String nextRegexp = (String)iter.next();
-                regexp += "|(" + nextRegexp + ")";
+                regexp.append("|(").append(nextRegexp).append(")");
                 // have to compile regexp first so that it will match
                 groupList.add(Pattern.compile(nextRegexp).pattern());
             }
-            if (!regexp.equals("")) {
+            if (!regexp.toString().equals("")) {
                 matcher = Pattern.compile(regexp.substring(1)).matcher("");
                 
                 iter = children.values().iterator();
@@ -557,15 +558,17 @@ public class StructuredSyntaxDocumentFilter extends DocumentFilter {
         
     }
 
-    private static class MLComparator implements Comparator {
-        
+    private static class MLComparator implements Comparator, Serializable {
+
+        private static final long serialVersionUID = -4210196728719411217L;
+
         public int compare(Object obj, Object obj1) {
             return valueOf(obj) - valueOf(obj1);
         }
         
         private int valueOf(Object obj) {
-            return obj instanceof Integer ? 
-                    ((Integer)obj).intValue() : 
+            return obj instanceof Integer ?
+                    (Integer) obj :
                     (obj instanceof MultiLineRun) ?
                         ((MultiLineRun)obj).start() :
                         ((Position)obj).getOffset();

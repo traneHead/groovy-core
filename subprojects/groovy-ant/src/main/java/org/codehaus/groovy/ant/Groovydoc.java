@@ -34,7 +34,10 @@ import org.codehaus.groovy.tools.groovydoc.gstringTemplates.GroovyDocTemplateInf
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
+import java.util.StringTokenizer;
 
 /**
  * Access to the GroovyDoc tool from Ant.
@@ -398,7 +401,7 @@ public class Groovydoc extends Task {
                     }
                 });
 
-                for (String filename : Arrays.asList(files)) {
+                for (String filename : files) {
                     sourceFilesToDoc.add(dir + File.separator + filename);
                 }
 

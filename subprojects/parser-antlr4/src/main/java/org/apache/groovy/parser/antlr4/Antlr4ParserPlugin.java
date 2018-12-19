@@ -21,6 +21,7 @@ package org.apache.groovy.parser.antlr4;
 import org.codehaus.groovy.GroovyBugError;
 import org.codehaus.groovy.ast.ModuleNode;
 import org.codehaus.groovy.control.CompilationFailedException;
+import org.codehaus.groovy.control.CompilerConfiguration;
 import org.codehaus.groovy.control.ParserPlugin;
 import org.codehaus.groovy.control.SourceUnit;
 import org.codehaus.groovy.control.io.ReaderSource;
@@ -30,6 +31,7 @@ import org.codehaus.groovy.syntax.ParserException;
 import org.codehaus.groovy.syntax.Reduction;
 
 import java.io.IOException;
+import java.io.Reader;
 
 /**
  * A parser plugin for the new parser
@@ -39,11 +41,22 @@ import java.io.IOException;
  */
 public class Antlr4ParserPlugin implements ParserPlugin {
     private ReaderSource readerSource;
+    private CompilerConfiguration compilerConfiguration;
+
+    public Antlr4ParserPlugin(CompilerConfiguration compilerConfiguration) {
+        this.compilerConfiguration = compilerConfiguration;
+    }
 
     @Override
     public Reduction parseCST(SourceUnit sourceUnit, java.io.Reader reader) throws CompilationFailedException {
-        try {
-            this.readerSource = new StringReaderSource(IOGroovyMethods.getText(reader), sourceUnit.getConfiguration());
+        ReaderSource readerSource = sourceUnit.getSource();
+
+        try (Reader sourceReader = null != readerSource ? readerSource.getReader() : null) {
+            if (null != readerSource && null != sourceReader) {
+                this.readerSource = readerSource;
+            } else {
+                this.readerSource = new StringReaderSource(IOGroovyMethods.getText(reader), sourceUnit.getConfiguration());
+            }
         } catch (IOException e) {
             throw new GroovyBugError("Failed to create StringReaderSource instance", e);
         }
@@ -52,12 +65,18 @@ public class Antlr4ParserPlugin implements ParserPlugin {
     }
 
     @Override
-    public ModuleNode buildAST(SourceUnit sourceUnit, java.lang.ClassLoader classLoader, Reduction cst) throws ParserException {
-        if (null != this.readerSource) {
+    public ModuleNode buildAST(SourceUnit sourceUnit, ClassLoader classLoader, Reduction cst) throws ParserException {
+        ReaderSource readerSource = sourceUnit.getSource();
+
+        try (Reader sourceReader = null != readerSource ? readerSource.getReader() : null) {
+            if (null == readerSource || null == sourceReader) {
+                sourceUnit.setSource(this.readerSource);
+            }
+        } catch (IOException e) {
             sourceUnit.setSource(this.readerSource);
         }
 
-        AstBuilder builder = new AstBuilder(sourceUnit, classLoader);
+        AstBuilder builder = new AstBuilder(sourceUnit, compilerConfiguration);
 
         return builder.buildAST();
     }

@@ -18,8 +18,12 @@
  */
 package groovy.text;
 
-import groovy.lang.*;
-
+import groovy.lang.Closure;
+import groovy.lang.GroovyClassLoader;
+import groovy.lang.GroovyCodeSource;
+import groovy.lang.GroovyObject;
+import groovy.lang.GroovyRuntimeException;
+import groovy.lang.Writable;
 import org.codehaus.groovy.control.CompilationFailedException;
 import org.codehaus.groovy.control.ErrorCollector;
 import org.codehaus.groovy.control.MultipleCompilationErrorsException;
@@ -257,7 +261,9 @@ public class StreamingTemplateEngine extends TemplateEngine {
 
         String scriptSource;
 
-        private static class FinishedReadingException extends Exception {}
+        private static class FinishedReadingException extends Exception {
+            private static final long serialVersionUID = -3786157136157691230L;
+        }
 
         //WE USE THIS AS REUSABLE        
         //CHECKSTYLE.OFF: ConstantNameCheck - special case with a reusable exception
@@ -373,15 +379,9 @@ public class StreamingTemplateEngine extends TemplateEngine {
         private int getLinesInSource() throws IOException {
             int result = 0;
 
-            LineNumberReader reader = null;
-            try {
-                reader = new LineNumberReader(new StringReader(templateSource.toString()));
+            try (LineNumberReader reader = new LineNumberReader(new StringReader(templateSource.toString()))) {
                 reader.skip(Long.MAX_VALUE);
                 result = reader.getLineNumber();
-            } finally {
-                if (reader != null) {
-                    reader.close();
-                }
             }
 
             return result;
@@ -618,9 +618,7 @@ public class StreamingTemplateEngine extends TemplateEngine {
                 Closure chicken = (Closure) object.invokeMethod("getTemplate", null);
                 //bind the two first parameters of the generated closure to this class and the sections list
                 result = chicken.curry(this, sections);
-            } catch (InstantiationException e) {
-                throw new ClassNotFoundException(e.getMessage());
-            } catch (IllegalAccessException e) {
+            } catch (InstantiationException | IllegalAccessException e) {
                 throw new ClassNotFoundException(e.getMessage());
             }
 
@@ -740,6 +738,12 @@ public class StreamingTemplateEngine extends TemplateEngine {
             append(target, targetPosition, "          ");
             append(target, targetPosition, (char) pendingC);
 
+            readAndAppend(reader, target, sourcePosition, targetPosition);
+
+            append(target, targetPosition, ';');
+        }
+
+        private void readAndAppend(Reader reader, StringBuilder target, Position sourcePosition, Position targetPosition) throws IOException, FinishedReadingException {
             while (true) {
                 int c = read(reader, sourcePosition);
                 if (c == '%') {
@@ -749,8 +753,6 @@ public class StreamingTemplateEngine extends TemplateEngine {
                 }
                 append(target, targetPosition, (char) c);
             }
-
-            append(target, targetPosition, ';');
         }
 
         /**
@@ -762,15 +764,7 @@ public class StreamingTemplateEngine extends TemplateEngine {
                 final Position targetPosition) throws IOException, FinishedReadingException {
             append(target, targetPosition, "out<<\"\"\"${");
 
-            while (true) {
-                int c = read(reader, sourcePosition);
-                if (c == '%') {
-                    c = read(reader, sourcePosition);
-                    if (c == '>') break;
-                    append(target, targetPosition, '%');
-                }
-                append(target, targetPosition, (char) c);
-            }
+            readAndAppend(reader, target, sourcePosition, targetPosition);
 
             append(target, targetPosition, "}\"\"\";");
         }

@@ -18,25 +18,96 @@
  */
 package groovy.inspect.swingui
 
-import org.codehaus.groovy.ast.*
-import org.codehaus.groovy.ast.expr.*
-import org.codehaus.groovy.ast.stmt.*
+import groovy.transform.CompileStatic
+import org.apache.groovy.io.StringBuilderWriter
+import org.codehaus.groovy.ast.ASTNode
+import org.codehaus.groovy.ast.AnnotationNode
+import org.codehaus.groovy.ast.ClassHelper
+import org.codehaus.groovy.ast.ClassNode
+import org.codehaus.groovy.ast.ConstructorNode
+import org.codehaus.groovy.ast.FieldNode
+import org.codehaus.groovy.ast.GenericsType
+import org.codehaus.groovy.ast.GroovyClassVisitor
+import org.codehaus.groovy.ast.GroovyCodeVisitor
+import org.codehaus.groovy.ast.ImportNode
+import org.codehaus.groovy.ast.MethodNode
+import org.codehaus.groovy.ast.PackageNode
+import org.codehaus.groovy.ast.Parameter
+import org.codehaus.groovy.ast.PropertyNode
+import org.codehaus.groovy.ast.expr.ArgumentListExpression
+import org.codehaus.groovy.ast.expr.ArrayExpression
+import org.codehaus.groovy.ast.expr.AttributeExpression
+import org.codehaus.groovy.ast.expr.BinaryExpression
+import org.codehaus.groovy.ast.expr.BitwiseNegationExpression
+import org.codehaus.groovy.ast.expr.BooleanExpression
+import org.codehaus.groovy.ast.expr.CastExpression
+import org.codehaus.groovy.ast.expr.ClassExpression
+import org.codehaus.groovy.ast.expr.ClosureExpression
+import org.codehaus.groovy.ast.expr.ClosureListExpression
+import org.codehaus.groovy.ast.expr.ConstantExpression
+import org.codehaus.groovy.ast.expr.ConstructorCallExpression
+import org.codehaus.groovy.ast.expr.DeclarationExpression
+import org.codehaus.groovy.ast.expr.ElvisOperatorExpression
+import org.codehaus.groovy.ast.expr.EmptyExpression
+import org.codehaus.groovy.ast.expr.Expression
+import org.codehaus.groovy.ast.expr.FieldExpression
+import org.codehaus.groovy.ast.expr.GStringExpression
+import org.codehaus.groovy.ast.expr.ListExpression
+import org.codehaus.groovy.ast.expr.MapEntryExpression
+import org.codehaus.groovy.ast.expr.MapExpression
+import org.codehaus.groovy.ast.expr.MethodCallExpression
+import org.codehaus.groovy.ast.expr.MethodPointerExpression
+import org.codehaus.groovy.ast.expr.NotExpression
+import org.codehaus.groovy.ast.expr.PostfixExpression
+import org.codehaus.groovy.ast.expr.PrefixExpression
+import org.codehaus.groovy.ast.expr.PropertyExpression
+import org.codehaus.groovy.ast.expr.RangeExpression
+import org.codehaus.groovy.ast.expr.SpreadExpression
+import org.codehaus.groovy.ast.expr.SpreadMapExpression
+import org.codehaus.groovy.ast.expr.StaticMethodCallExpression
+import org.codehaus.groovy.ast.expr.TernaryExpression
+import org.codehaus.groovy.ast.expr.TupleExpression
+import org.codehaus.groovy.ast.expr.UnaryMinusExpression
+import org.codehaus.groovy.ast.expr.UnaryPlusExpression
+import org.codehaus.groovy.ast.expr.VariableExpression
+import org.codehaus.groovy.ast.stmt.AssertStatement
+import org.codehaus.groovy.ast.stmt.BlockStatement
+import org.codehaus.groovy.ast.stmt.BreakStatement
+import org.codehaus.groovy.ast.stmt.CaseStatement
+import org.codehaus.groovy.ast.stmt.CatchStatement
+import org.codehaus.groovy.ast.stmt.ContinueStatement
+import org.codehaus.groovy.ast.stmt.DoWhileStatement
+import org.codehaus.groovy.ast.stmt.EmptyStatement
+import org.codehaus.groovy.ast.stmt.ExpressionStatement
+import org.codehaus.groovy.ast.stmt.ForStatement
+import org.codehaus.groovy.ast.stmt.IfStatement
+import org.codehaus.groovy.ast.stmt.ReturnStatement
+import org.codehaus.groovy.ast.stmt.Statement
+import org.codehaus.groovy.ast.stmt.SwitchStatement
+import org.codehaus.groovy.ast.stmt.SynchronizedStatement
+import org.codehaus.groovy.ast.stmt.ThrowStatement
+import org.codehaus.groovy.ast.stmt.TryCatchStatement
+import org.codehaus.groovy.ast.stmt.WhileStatement
 import org.codehaus.groovy.classgen.BytecodeExpression
-import org.codehaus.groovy.control.CompilePhase
-import java.lang.reflect.Modifier
-import org.codehaus.groovy.control.CompilationUnit
-import org.codehaus.groovy.control.CompilerConfiguration
-import org.codehaus.groovy.control.CompilationFailedException
 import org.codehaus.groovy.classgen.GeneratorContext
-import org.codehaus.groovy.control.SourceUnit
-import org.codehaus.groovy.control.CompilationUnit.PrimaryClassNodeOperation
 import org.codehaus.groovy.classgen.Verifier
+import org.codehaus.groovy.control.CompilationFailedException
+import org.codehaus.groovy.control.CompilationUnit
+import org.codehaus.groovy.control.CompilationUnit.PrimaryClassNodeOperation
+import org.codehaus.groovy.control.CompilePhase
+import org.codehaus.groovy.control.CompilerConfiguration
+import org.codehaus.groovy.control.SourceUnit
+import org.codehaus.groovy.syntax.Types
+
+import java.lang.reflect.Modifier
+import java.security.CodeSource
 
 /**
  * This class takes Groovy source code, compiles it to a specific compile phase, and then decompiles it
  * back to the groovy source. It is used by GroovyConsole's AST Browser, but can also be invoked from
  * the command line.
  */
+@CompileStatic
 class AstNodeToScriptAdapter {
 
     /**
@@ -44,7 +115,7 @@ class AstNodeToScriptAdapter {
      * @param args
      *      a filename to compile and a CompilePhase to run to
      */
-    static void main(args) {
+    static void main(String[] args) {
 
         if (!args || args.length < 2) {
             println '''
@@ -78,17 +149,20 @@ and [compilephase] is a valid Integer based org.codehaus.groovy.control.CompileP
      *    Whether or not to show the script portion of the source code
      * @param showScriptClass
      *    Whether or not to show the Script class from the source code
+     * @param config
+     *    optional compiler configuration
      * @returns the source code from the AST state
      */
-    String compileToScript(String script, int compilePhase, ClassLoader classLoader = null, boolean showScriptFreeForm = true, boolean showScriptClass = true) {
 
-        def writer = new StringWriter()
+    String compileToScript(String script, int compilePhase, ClassLoader classLoader = null, boolean showScriptFreeForm = true, boolean showScriptClass = true, CompilerConfiguration config = null) {
+
+        def writer = new StringBuilderWriter()
 
         classLoader = classLoader ?: new GroovyClassLoader(getClass().classLoader)
 
         def scriptName = 'script' + System.currentTimeMillis() + '.groovy'
         GroovyCodeSource codeSource = new GroovyCodeSource(script, scriptName, '/groovy/script')
-        CompilationUnit cu = new CompilationUnit(CompilerConfiguration.DEFAULT, codeSource.codeSource, classLoader)
+        CompilationUnit cu = new CompilationUnit((CompilerConfiguration) (config ?: CompilerConfiguration.DEFAULT), (CodeSource) codeSource.codeSource, (GroovyClassLoader) classLoader)
         cu.addPhaseOperation(new AstNodeToScriptVisitor(writer, showScriptFreeForm, showScriptClass), compilePhase)
         cu.addSource(codeSource.getName(), script)
         try {
@@ -112,6 +186,7 @@ and [compilephase] is a valid Integer based org.codehaus.groovy.control.CompileP
 /**
  * An adapter from ASTNode tree to source code.
  */
+@CompileStatic
 class AstNodeToScriptVisitor extends PrimaryClassNodeOperation implements GroovyCodeVisitor, GroovyClassVisitor {
 
     private final Writer _out
@@ -266,6 +341,8 @@ class AstNodeToScriptVisitor extends PrimaryClassNodeOperation implements Groovy
         if (node.isInterface()) print node.name
         else print "class $node.name"
         visitGenerics node?.genericsTypes
+        print ' extends '
+        visitType node.unresolvedSuperClass
         boolean first = true
         node.unresolvedInterfaces?.each {
             if (!first) {
@@ -276,8 +353,6 @@ class AstNodeToScriptVisitor extends PrimaryClassNodeOperation implements Groovy
             first = false
             visitType it
         }
-        print ' extends '
-        visitType node.unresolvedSuperClass
         print ' { '
         printDoubleBreak()
 
@@ -660,11 +735,13 @@ class AstNodeToScriptVisitor extends PrimaryClassNodeOperation implements Groovy
     @Override
     void visitBinaryExpression(BinaryExpression expression) {
         expression?.leftExpression?.visit this
-        print " $expression.operation.text "
-        expression.rightExpression.visit this
+        if (!(expression.rightExpression instanceof EmptyExpression) || expression.operation.type != Types.ASSIGN) {
+            print " $expression.operation.text "
+            expression.rightExpression.visit this
 
-        if (expression?.operation?.text == '[') {
-            print ']'
+            if (expression?.operation?.text == '[') {
+                print ']'
+            }
         }
     }
 
@@ -725,7 +802,7 @@ class AstNodeToScriptVisitor extends PrimaryClassNodeOperation implements Groovy
         }
         print '.'
         if (expression?.property instanceof ConstantExpression) {
-            visitConstantExpression(expression?.property, true)
+            visitConstantExpression((ConstantExpression) expression?.property, true)
         } else {
             expression?.property?.visit this
         }
@@ -770,7 +847,7 @@ class AstNodeToScriptVisitor extends PrimaryClassNodeOperation implements Groovy
         // handle multiple assignment expressions
         if (expression?.leftExpression instanceof ArgumentListExpression) {
             print 'def '
-            visitArgumentlistExpression expression?.leftExpression, true
+            visitArgumentlistExpression((ArgumentListExpression) expression?.leftExpression, true)
             print " $expression.operation.text "
             expression.rightExpression.visit this
 
@@ -874,7 +951,7 @@ class AstNodeToScriptVisitor extends PrimaryClassNodeOperation implements Groovy
         if (expression?.mapEntryExpressions?.size() == 0) {
             print ':'
         } else {
-            visitExpressionsAndCommaSeparate(expression?.mapEntryExpressions)
+            visitExpressionsAndCommaSeparate((List) expression?.mapEntryExpressions)
         }
         print ']'
     }
@@ -1051,7 +1128,7 @@ class AstNodeToScriptVisitor extends PrimaryClassNodeOperation implements Groovy
                 print ', '
             }
             first = false
-            it.visit this
+            ((ASTNode) it).visit this
         }
     }
 

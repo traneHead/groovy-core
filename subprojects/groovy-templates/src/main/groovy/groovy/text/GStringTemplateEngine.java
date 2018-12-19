@@ -18,7 +18,15 @@
  */
 package groovy.text;
 
-import groovy.lang.*;
+import groovy.lang.Binding;
+import groovy.lang.Closure;
+import groovy.lang.GroovyClassLoader;
+import groovy.lang.GroovyCodeSource;
+import groovy.lang.GroovyObject;
+import groovy.lang.GroovyRuntimeException;
+import groovy.lang.Writable;
+import org.apache.groovy.util.SystemUtil;
+import org.codehaus.groovy.control.CompilationFailedException;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -26,8 +34,6 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import org.codehaus.groovy.control.CompilationFailedException;
 
 /**
  * Processes template source files substituting variables and expressions into
@@ -86,14 +92,11 @@ import org.codehaus.groovy.control.CompilationFailedException;
  * &lt;/servlet&gt;
  * </pre>
  * In this case, your template source file should be HTML with the appropriate embedded placeholders.
- *
- * @author tug@wilson.co.uk
- * @author Paul King
  */
 public class GStringTemplateEngine extends TemplateEngine {
     private final ClassLoader parentLoader;
     private static AtomicInteger counter = new AtomicInteger();
-    private static final boolean reuseClassLoader = Boolean.getBoolean("groovy.GStringTemplateEngine.reuseClassLoader");
+    private static final boolean reuseClassLoader = SystemUtil.getBooleanSafe("groovy.GStringTemplateEngine.reuseClassLoader");
 
     public GStringTemplateEngine() {
         this(GStringTemplate.class.getClassLoader());
@@ -206,9 +209,7 @@ public class GStringTemplateEngine extends TemplateEngine {
                 // books = 'foo' in a template would store 'books' in the binding of the template script itself ("script")
                 // instead of storing it in the delegate, which is a Binding too
                 this.template.setResolveStrategy(Closure.DELEGATE_FIRST);
-            } catch (InstantiationException e) {
-                throw new ClassNotFoundException(e.getMessage());
-            } catch (IllegalAccessException e) {
+            } catch (InstantiationException | IllegalAccessException e) {
                 throw new ClassNotFoundException(e.getMessage());
             }
         }
@@ -257,6 +258,12 @@ public class GStringTemplateEngine extends TemplateEngine {
             }
             templateExpressions.append((char) pendingC);
 
+            readAndAppend(reader, templateExpressions);
+
+            templateExpressions.append(";\n ");
+        }
+
+        private static void readAndAppend(Reader reader, StringBuilder templateExpressions) throws IOException {
             while (true) {
                 int c = reader.read();
                 if (c == -1) break;
@@ -267,8 +274,6 @@ public class GStringTemplateEngine extends TemplateEngine {
                 }
                 templateExpressions.append((char) c);
             }
-
-            templateExpressions.append(";\n ");
         }
 
         /**
@@ -289,16 +294,7 @@ public class GStringTemplateEngine extends TemplateEngine {
 
             templateExpressions.append("${");
 
-            while (true) {
-                int c = reader.read();
-                if (c == -1) break;
-                if (c == '%') {
-                    c = reader.read();
-                    if (c == '>') break;
-                    templateExpressions.append('%');
-                }
-                templateExpressions.append((char) c);
-            }
+            readAndAppend(reader, templateExpressions);
 
             templateExpressions.append('}');
         }
